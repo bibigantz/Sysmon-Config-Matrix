@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Deliberately messy fixture for testing loose/orphaned rule handling:
+  - loose field conditions with no enclosing event tag
+  - a non-standard <Include>/<Exclude> wrapper tag (not real Sysmon syntax)
+  - a well-formed event tag sitting outside <EventFiltering> entirely
+-->
+<Sysmon schemaversion="4.90">
+  <HashAlgorithms>SHA256</HashAlgorithms>
+  <EventFiltering>
+
+    <RuleGroup name="Legacy exclusions" groupRelation="or">
+      <!-- ticket SOC-456: legacy exclusion carried over from the old config, needs re-wrapping -->
+      <Image condition="contains">\legacyagent.exe</Image>
+      <CommandLine condition="contains">legacy-tool --silent</CommandLine>
+    </RuleGroup>
+
+    <NetworkConnect onmatch="exclude">
+      <DestinationPort condition="is">443</DestinationPort>
+    </NetworkConnect>
+
+    <!-- someone forgot to wrap this one in a ProcessCreate tag -->
+    <QueryName condition="contains">example.com</QueryName>
+
+    <Exclude>
+      <ProcessCreate>
+        <Image condition="contains">\noisyupdater.exe</Image>
+      </ProcessCreate>
+    </Exclude>
+
+  </EventFiltering>
+
+  <!-- this DriverLoad rule is misplaced outside EventFiltering entirely -->
+  <DriverLoad onmatch="exclude">
+    <Signature condition="contains">Microsoft</Signature>
+  </DriverLoad>
+
+</Sysmon>

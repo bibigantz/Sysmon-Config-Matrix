@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sysmon Config Matrix &amp; Multi-Manager</title>
+<!-- Local files only (no CDN) - the favicon must keep working with zero internet access, same as the rest of this app. -->
+<link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+<meta name="theme-color" content="#09090b" />
+<script>
+  // Applied synchronously, before first paint, so there's no flash of the wrong theme while
+  // src/store/useThemeStore.js (which owns the persisted state for the rest of the app) loads.
+  (function () {
+    var stored = null
+    try { stored = localStorage.getItem('sysmon-theme') } catch (e) {}
+    var theme = stored === 'dark' || stored === 'light' || stored === 'system' ? stored : 'dark'
+    var resolved = theme === 'system'
+      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : theme
+    document.documentElement.classList.add(resolved)
+  })()
+</script>
+<style>
+  html.dark, html.dark body { background-color: #09090b; }
+  html.light, html.light body { background-color: #f8fafc; }
+  html.dark { scrollbar-color: #3f3f46 #18181b; }
+  html.light { scrollbar-color: #94a3b8 #e2e8f0; }
+  * { scrollbar-width: thin; }
+  html.dark ::-webkit-scrollbar-track { background: #18181b; }
+  html.light ::-webkit-scrollbar-track { background: #e2e8f0; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  html.dark ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+  html.light ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+</style>
+<script>
+  // --- CDN / Air-Gapped module source toggle --------------------------------------------------
+  // ES module `import` specifiers must be static string literals, so a single codebase can't
+  // branch between "fetch from esm.sh" and "fetch from ./vendor/" with a plain JS variable.
+  // Browser import maps solve this: our src/ files import bare specifiers ('react', 'zustand',
+  // 'jszip', ...) and this script decides - before any module loads - whether those bare names
+  // resolve to the esm.sh CDN or to the local vendor/ copies produced by
+  // requirements/vendor-deps.py (see requirements/dependencies.json for the offline setup steps).
+  // The on-page control for *changing* this setting lives in React (TopBar.js /
+  // ModuleModeToggle.js) - it only needs to set the same localStorage key and reload, so unlike
+  // this decision itself, it doesn't need to run before module loading.
+  //
+  // Default is 'vendor', not 'cdn': this folder ships with ./vendor/ already populated (see
+  // requirements/vendor-deps.py), so a fresh browser profile with no prior localStorage choice -
+  // exactly what you get after transferring this folder to a new/air-gapped machine - must work
+  // with zero internet access out of the box, not silently try esm.sh first. Pass ?modules=cdn
+  // once if you ever want to switch back to the CDN on a machine that does have internet.
+  (function () {
+    var params = new URLSearchParams(location.search)
+    var requested = params.get('modules')
+    if (requested === 'cdn' || requested === 'vendor') {
+      localStorage.setItem('sysmon-module-source', requested)
+    }
+    var mode = localStorage.getItem('sysmon-module-source') || 'vendor'
+
+    var CDN_IMPORTS = {
+      react: 'https://esm.sh/react@18.3.1',
+      'react-dom/client': 'https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1',
+      zustand: 'https://esm.sh/zustand@4.5.2?deps=react@18.3.1',
+      'fast-xml-parser': 'https://esm.sh/fast-xml-parser@4.5.0',
+      'lucide-react': 'https://esm.sh/lucide-react@0.462.0?deps=react@18.3.1',
+      htm: 'https://esm.sh/htm@3.1.1',
+      jszip: 'https://esm.sh/jszip@3.10.1',
+    }
+    var VENDOR_IMPORTS = {
+      react: './vendor/react.js',
+      'react-dom/client': './vendor/react-dom-client.js',
+      zustand: './vendor/zustand.js',
+      'fast-xml-parser': './vendor/fast-xml-parser.js',
+      'lucide-react': './vendor/lucide-react.js',
+      htm: './vendor/htm.js',
+      jszip: './vendor/jszip.js',
+    }
+    var CDN_TAILWIND = 'https://cdn.tailwindcss.com'
+    var VENDOR_TAILWIND = './vendor/tailwindcss-cdn.js'
+
+    var imports = mode === 'vendor' ? VENDOR_IMPORTS : CDN_IMPORTS
+    var tailwindSrc = mode === 'vendor' ? VENDOR_TAILWIND : CDN_TAILWIND
+
+    var mapTag = document.createElement('script')
+    mapTag.type = 'importmap'
+    mapTag.textContent = JSON.stringify({ imports: imports })
+    document.head.appendChild(mapTag)
+
+    var twTag = document.createElement('script')
+    twTag.src = tailwindSrc
+    twTag.onload = function () {
+      if (window.tailwind) window.tailwind.config = { darkMode: 'class' }
+    }
+    document.head.appendChild(twTag)
+
+    window.__SYSMON_MODULE_SOURCE__ = mode
+
+    window.addEventListener('DOMContentLoaded', function () {
+      var modTag = document.createElement('script')
+      modTag.type = 'module'
+      modTag.src = './src/main.js'
+      document.body.appendChild(modTag)
+    })
+  })()
+</script>
+</head>
+<body>
+<div id="root"></div>
+</body>
+</html>

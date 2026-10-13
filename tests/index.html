@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sysmon Config Matrix - Unit Tests</title>
+<style>
+  body { background: #09090b; color: #e4e4e7; font: 13px/1.5 ui-monospace, monospace; padding: 16px; }
+  #summary { font-size: 14px; font-weight: bold; margin-bottom: 12px; }
+  .pass { color: #34d399; }
+  .fail { color: #f87171; }
+</style>
+<script>
+  // Only the pure logic modules under test need an external dependency (fast-xml-parser, used
+  // by xmlParser.js) - this harness doesn't need the app's full CDN/vendor import-map toggle,
+  // just a direct mapping so the same bare specifier resolves here too. Built the same way as
+  // index.html's bootstrap: inject the importmap, then the module script, so ordering is safe.
+  //
+  // Defaults to the vendored local copy (same offline-first default as index.html) so the test
+  // suite also runs with zero internet access on a transferred/air-gapped copy of this folder;
+  // pass ?modules=cdn to use esm.sh instead (e.g. on a machine where vendor/ wasn't generated).
+  var testParams = new URLSearchParams(location.search)
+  var testSource = testParams.get('modules') === 'cdn'
+    ? 'https://esm.sh/fast-xml-parser@4.5.0'
+    : '../vendor/fast-xml-parser.js'
+  var mapTag = document.createElement('script')
+  mapTag.type = 'importmap'
+  mapTag.textContent = JSON.stringify({ imports: { 'fast-xml-parser': testSource } })
+  document.head.appendChild(mapTag)
+  window.addEventListener('DOMContentLoaded', function () {
+    var modTag = document.createElement('script')
+    modTag.type = 'module'
+    modTag.src = './run.js'
+    document.body.appendChild(modTag)
+  })
+</script>
+</head>
+<body>
+<div id="summary">Running tests...</div>
+<div id="results"></div>
+</body>
+</html>

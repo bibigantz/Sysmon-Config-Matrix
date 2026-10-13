@@ -1,0 +1,30 @@
+{
+  "name": "sysmon-config-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sysmon Config Matrix & Multi-Manager - import, diff, and batch-edit Sysmon configs across multiple network environments.",
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 5173",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "notes": "This project runs with zero build step: all dependencies below are loaded as ES modules at runtime, from the already-populated ./vendor/ folder by default (works fully offline out of the box), or from esm.sh if you switch modes (see requirements/dependencies.json). `npm run serve` only needs Python's built-in static server - no Node install required, and none of package.json/node_modules is actually used at runtime. The `dev`/`build`/`preview` scripts are provided for later migration to a bundled Vite + TypeScript setup and require `npm install` with Node.js available.",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.2",
+    "fast-xml-parser": "^4.5.0",
+    "lucide-react": "^0.462.0",
+    "htm": "^3.1.1",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "typescript": "^5.6.0",
+    "tailwindcss": "^3.4.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0"
+  }
+}

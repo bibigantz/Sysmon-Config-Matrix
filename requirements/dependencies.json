@@ -1,0 +1,31 @@
+{
+  "runtime": "Zero-build-step browser app. src/ imports bare specifiers (react, zustand, jszip, ...); a browser import map injected by index.html resolves them to either the esm.sh CDN or the local ./vendor/ folder, selectable at runtime (see offline_mode below).",
+  "module_resolution": {
+    "mechanism": "Browser import maps (<script type=\"importmap\">), injected dynamically by an inline classic script in index.html before src/main.js loads.",
+    "modes": {
+      "cdn": "Bare specifiers resolve to pinned esm.sh URLs.",
+      "vendor": "Bare specifiers resolve to ./vendor/<name>.js, produced by requirements/vendor-deps.py (default - this folder ships with ./vendor/ already populated so it works with zero internet access out of the box)."
+    },
+    "toggle": "Top-bar on-page control, or ?modules=cdn / ?modules=vendor in the URL (persisted to localStorage)."
+  },
+  "cdn_dependencies": [
+    { "name": "react", "version": "18.3.1", "url": "https://esm.sh/react@18.3.1", "purpose": "UI component model" },
+    { "name": "react-dom/client", "version": "18.3.1", "url": "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1", "purpose": "DOM renderer" },
+    { "name": "htm", "version": "3.1.1", "url": "https://esm.sh/htm@3.1.1", "purpose": "JSX-like tagged templates without a compiler step" },
+    { "name": "zustand", "version": "4.5.2", "url": "https://esm.sh/zustand@4.5.2?deps=react@18.3.1", "purpose": "App state: networks, undo/redo history, UI selection" },
+    { "name": "fast-xml-parser", "version": "4.5.0", "url": "https://esm.sh/fast-xml-parser@4.5.0", "purpose": "Tolerant, comment-preserving XML <-> JS parsing/serialization of messy Sysmon configs (used in preserveOrder mode)" },
+    { "name": "lucide-react", "version": "0.462.0", "url": "https://esm.sh/lucide-react@0.462.0?deps=react@18.3.1", "purpose": "Icon set" },
+    { "name": "jszip", "version": "3.10.1", "url": "https://esm.sh/jszip@3.10.1", "purpose": "Bundles all exported network XML files into one .zip download" },
+    { "name": "tailwindcss", "version": "play-cdn (latest 3.x)", "url": "https://cdn.tailwindcss.com", "purpose": "Utility CSS, dark SOC theme" }
+  ],
+  "why_cdn_instead_of_npm": "This environment has no Node.js/npm installed, so `npm install` + a bundler (Vite/webpack) cannot run here. Loading pinned-version ES modules directly from esm.sh gives the same package versions with zero install step and no local toolchain dependency, satisfying the brief's 'work seamlessly online via reliable CDNs' allowance.",
+  "offline_mode": {
+    "script": "requirements/vendor-deps.py",
+    "description": "Stdlib-only Python script that recursively crawls every import/export specifier starting from the 7 dependencies above (plus the Tailwind CDN script), mirrors each file under ./vendor/, and rewrites every internal import to a relative local path. Run once while online; the app can then run with zero internet access, verified by driving it in a browser with every non-localhost request blocked.",
+    "usage": "python requirements/vendor-deps.py   (from the sysmon-config-manager/ directory)"
+  },
+  "npm_equivalent": {
+    "description": "If Node.js becomes available, `npm install` using package.json's dependencies/devDependencies plus a Vite config will let the same src/ files run through a real bundler - src/ already imports bare package names, so no source changes are needed; just drop the import-map bootstrap from index.html since a bundler resolves bare specifiers itself.",
+    "packages": ["react", "react-dom", "zustand", "fast-xml-parser", "lucide-react", "htm", "jszip", "vite", "typescript", "tailwindcss"]
+  }
+}
