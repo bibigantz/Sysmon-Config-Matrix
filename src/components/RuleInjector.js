@@ -1,6 +1,6 @@
 import { html, useState } from '../lib/react.js'
 import { useStore } from '../store/useStore.js'
-import { Card, CardHeader, CardBody, Button, Select, TextInput, Checkbox, Pill } from './ui.js'
+import { Card, CardHeader, CardBody, Button, Select, TextInput, Checkbox, Pill, PageIntro } from './ui.js'
 import { Plus, X, Wand2, Code2, AlertTriangle, CircleCheck } from './icons.js'
 import { EVENT_TAGS, CONDITIONS, ONMATCH_VALUES, COMMON_FIELDS_BY_TAG } from '../utils/eventSchema.js'
 import { createRuleFromForm, parseRawSnippet, detectConflicts } from '../utils/ruleOps.js'
@@ -65,7 +65,13 @@ export function RuleInjector() {
     setPreview(null)
   }
 
-  return html`<div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+  return html`<div class="space-y-4">
+    <${PageIntro} icon=${Wand2}>
+      Build one rule - with the form builder or by pasting raw XML - and apply it to every selected network at
+      once. <b>Preview conflicts & build rule</b> always runs first, checking the candidate against each target's
+      existing rules for exact duplicates or same-field/different-value conflicts before anything is committed.
+    </${PageIntro}>
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
     <div class="space-y-4">
       <${Card}>
         <${CardHeader} className="flex items-center gap-2">
@@ -149,5 +155,6 @@ export function RuleInjector() {
         ${networks.length === 0 ? html`<div class="text-xs text-slate-500 italic dark:text-zinc-500">No networks loaded.</div>` : null}
       </${CardBody}>
     </${Card}>
+    </div>
   </div>`
 }

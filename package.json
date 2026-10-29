@@ -1,6 +1,6 @@
 {
   "name": "sysmon-config-manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Sysmon Config Matrix & Multi-Manager - import, diff, and batch-edit Sysmon configs across multiple network environments.",
   "type": "module",

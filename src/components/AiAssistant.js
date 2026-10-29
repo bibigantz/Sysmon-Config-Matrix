@@ -6,10 +6,10 @@
 import { html, useState } from '../lib/react.js'
 import { useStore } from '../store/useStore.js'
 import { useAiStore } from '../store/useAiStore.js'
-import { Card, CardHeader, CardBody, Button, Select, Checkbox, Pill } from './ui.js'
+import { Card, CardHeader, CardBody, Button, Select, Checkbox, Pill, PageIntro } from './ui.js'
 import {
   BrainCircuit, Wand2, FileSearch, FlaskConical, Send, Loader2, AlertTriangle, CircleCheck,
-  Copy, Check, Code2, WifiOff,
+  Copy, Check, Code2, WifiOff, Bot,
 } from './icons.js'
 import { buildMatrix } from '../utils/diffEngine.js'
 import { buildRiskIndex } from '../utils/riskAnalyzer.js'
@@ -437,6 +437,12 @@ export function AiAssistant() {
   const setActiveTab = useStore((s) => s.setActiveTab)
 
   return html`<div class="space-y-4">
+    <${PageIntro} icon=${Bot}>
+      Ask your local LLM to analyze coverage gaps across every loaded network, generate a new rule from a plain-English
+      request (previewed and conflict-checked exactly like the Global Rule Injector before anything is applied), or
+      explain/false-positive-review an existing rule with MITRE ATT&CK mapping. Every request goes only to the local
+      endpoint you configure - never to a cloud API.
+    </${PageIntro}>
     ${
       aiStatus !== 'connected'
         ? html`<div class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200">

@@ -1,8 +1,8 @@
 import { html, useState } from '../lib/react.js'
 import { useStore } from '../store/useStore.js'
-import { Card, CardHeader, CardBody, Pill, Badge } from './ui.js'
+import { Card, CardHeader, CardBody, Pill, Badge, PageIntro } from './ui.js'
 import { validateNetwork, validationCounts } from '../utils/validator.js'
-import { Hash, AlertTriangle, AlertCircle, Info, FileWarning, ChevronDown, ChevronRight } from './icons.js'
+import { Hash, AlertTriangle, AlertCircle, Info, FileWarning, ChevronDown, ChevronRight, Network } from './icons.js'
 import { EVENT_TAGS } from '../utils/eventSchema.js'
 
 function IssuesList({ network }) {
@@ -89,7 +89,14 @@ export function Dashboard() {
       <div class="text-sm">No networks loaded. Import Sysmon XML files from the sidebar to get started.</div>
     </div>`
   }
-  return html`<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-    ${networks.map((n) => html`<${NetworkCard} key=${n.id} network=${n} />`)}
+  return html`<div>
+    <${PageIntro} icon=${Network}>
+      Per-network overview: rule counts, filter totals, global options (hash algorithms, DNS lookup), and every
+      parser notice for each loaded Sysmon config at a glance. Click <b>N notices</b> on any card to see exactly
+      what the parser flagged for that file.
+    </${PageIntro}>
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      ${networks.map((n) => html`<${NetworkCard} key=${n.id} network=${n} />`)}
+    </div>
   </div>`
 }

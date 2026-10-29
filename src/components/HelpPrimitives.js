@@ -1,6 +1,8 @@
 import { html, useState } from '../lib/react.js'
-import { Info, AlertTriangle, Lightbulb, Copy, Check, ChevronDown, ChevronRight } from './icons.js'
+import { Info, AlertTriangle, Lightbulb, Copy, Check, ChevronDown, ChevronRight, Cpu } from './icons.js'
 import { highlightXml } from '../utils/xmlHighlight.js'
+import { highlightYaml } from '../utils/yamlHighlight.js'
+import { useHelpDevStore } from '../store/useHelpDevStore.js'
 
 export function H({ children }) {
   return html`<h3 class="text-base font-semibold text-slate-900 mb-2 mt-6 first:mt-0 dark:text-zinc-100">${children}</h3>`
@@ -52,9 +54,25 @@ export function Callout({ tone = 'info', title, children }) {
   </div>`
 }
 
+// Only visible when the Help Center's "Developer Mode" toggle is on (see HelpCenter.js /
+// useHelpDevStore.js) - an "under the hood" box naming the exact file(s)/function(s) that run
+// for whatever action the surrounding prose just described, for engineers who want to extend or
+// integrate with this app rather than just use it. Deliberately a distinct tone (violet) from the
+// info/warning/tip Callouts above so it reads as "implementation detail", not "user-facing advice".
+export function DevNote({ children }) {
+  const devMode = useHelpDevStore((s) => s.devMode)
+  if (!devMode) return null
+  return html`<div class="mb-3 rounded-md border border-violet-300 bg-violet-50 p-3 text-sm leading-relaxed text-violet-950 dark:border-violet-700/40 dark:bg-violet-500/10 dark:text-violet-200">
+    <div class="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-400">
+      <${Cpu} size=${12} /> Developer Mode - under the hood
+    </div>
+    <div>${children}</div>
+  </div>`
+}
+
 export function CodeBlock({ code, lang = 'xml', copyLabel = 'Copy', copiedLabel = 'Copied', copyTitle = 'Copy to clipboard' }) {
   const [copied, setCopied] = useState(false)
-  const highlighted = lang === 'xml' ? highlightXml(code.trim()) : null
+  const highlighted = lang === 'xml' ? highlightXml(code.trim()) : lang === 'yaml' ? highlightYaml(code.trim()) : null
 
   async function copy() {
     try {

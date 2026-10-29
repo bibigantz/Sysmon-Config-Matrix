@@ -81,6 +81,10 @@ export function Modal({ open, onClose, title, children, wide = false }) {
   </div>`
 }
 
+// `shrink-0 whitespace-nowrap` on every tab keeps each one at its natural width instead of the
+// flex row silently squeezing (and line-wrapping the label inside) every button as more tabs get
+// added - the container this renders into (TopBar.js) scrolls horizontally instead, which also
+// guarantees sibling controls placed after this never get pushed off-screen by tab overflow.
 export function Tabs({ tabs, active, onChange }) {
   return html`<div class="flex gap-1">
     ${tabs.map(
@@ -88,7 +92,7 @@ export function Tabs({ tabs, active, onChange }) {
         key=${t.id}
         onClick=${() => onChange(t.id)}
         title=${t.label}
-        class=${`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+        class=${`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
           active === t.id
             ? 'border-sky-500 text-sky-600 dark:text-sky-400'
             : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -98,6 +102,17 @@ export function Tabs({ tabs, active, onChange }) {
         ${t.label}
       </button>`
     )}
+  </div>`
+}
+
+// A short, always-visible "what this page does" banner, placed at the top of a tab's content -
+// distinct from the Help Center (src/content/helpTopics.js), which has the full documentation.
+// `icon` is normally the same icon the tab itself uses in TopBar.js's TABS list, so the banner
+// visually echoes the tab you just clicked.
+export function PageIntro({ icon: Icon, children }) {
+  return html`<div class="mb-4 flex items-start gap-2.5 rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm leading-relaxed text-sky-900 dark:border-sky-700/40 dark:bg-sky-500/10 dark:text-sky-200">
+    ${Icon ? html`<${Icon} size=${16} class="mt-0.5 shrink-0 text-sky-600 dark:text-sky-400" />` : null}
+    <div>${children}</div>
   </div>`
 }
 

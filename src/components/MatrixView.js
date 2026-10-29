@@ -1,7 +1,7 @@
 import { html, useState, useMemo, Fragment as Fragment2 } from '../lib/react.js'
 import { useStore } from '../store/useStore.js'
-import { Select, TextInput, Pill, Button, Checkbox } from './ui.js'
-import { Search, ChevronDown, ChevronRight, Trash2, Eye, EyeOff, MessageSquare, ShieldAlert, Pencil, Plus, X, Save, Unlink } from './icons.js'
+import { Select, TextInput, Pill, Button, Checkbox, PageIntro } from './ui.js'
+import { Search, ChevronDown, ChevronRight, Trash2, Eye, EyeOff, MessageSquare, ShieldAlert, Pencil, Plus, X, Save, Unlink, LayoutGrid } from './icons.js'
 import { ALL_EVENT_IDS, EVENT_ID_LABELS, TAG_BY_EVENT_ID, ONMATCH_VALUES, CONDITIONS, COMMON_FIELDS_BY_TAG } from '../utils/eventSchema.js'
 import { MITRE_TECHNIQUE_INDEX } from '../utils/mitreMap.js'
 import { buildRiskIndex } from '../utils/riskAnalyzer.js'
@@ -161,6 +161,12 @@ export function MatrixView() {
   }
 
   return html`<div class="space-y-3">
+    <${PageIntro} icon=${LayoutGrid}>
+      Every Sysmon Event ID as a row, every loaded network as a column - compare <b>include</b>/<b>exclude</b> rule
+      coverage across all your environments at a glance. Click a row to expand it and see each network's matching
+      rules, filters, MITRE tags, and per-rule edit/suppress/delete controls. The Risk Analyzer's operator-mismatch
+      and overly-broad-rule flags (shield icons) show up here too - see the Help Center for exactly what they check.
+    </${PageIntro}>
     <div class="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-900/60">
       <div class="flex items-center gap-1.5">
         <${Search} size=${14} class="text-slate-400 dark:text-zinc-500" />

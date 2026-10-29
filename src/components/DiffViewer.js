@@ -1,6 +1,6 @@
 import { html, useMemo } from '../lib/react.js'
 import { useStore } from '../store/useStore.js'
-import { Select, Card, CardHeader, CardBody, Pill } from './ui.js'
+import { Select, Card, CardHeader, CardBody, Pill, PageIntro } from './ui.js'
 import { diffNetworks } from '../utils/diffEngine.js'
 import { GitCompare, Unlink } from './icons.js'
 
@@ -60,6 +60,12 @@ export function DiffViewer() {
   const options = networks.map((n) => ({ value: n.id, label: n.name }))
 
   return html`<div class="space-y-4">
+    <${PageIntro} icon=${GitCompare}>
+      Pick any two loaded networks to see exactly which rules were <b>added</b>, <b>removed</b>, or <b>changed in
+      value</b> between them, bucketed by Event tag and onmatch. A "no differences" result means the two configs
+      are identical field-for-field in every bucket that exists in either one - useful for confirming two
+      environments really are in sync.
+    </${PageIntro}>
     <div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
       <${GitCompare} size=${16} class="text-slate-400 dark:text-zinc-500" />
       <${Select} value=${diffSelection.a || ''} onChange=${(v) => setDiffSelection(v, diffSelection.b)} placeholder="Network A" options=${options} />

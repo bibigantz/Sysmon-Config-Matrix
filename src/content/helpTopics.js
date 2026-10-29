@@ -1,8 +1,8 @@
 import { html } from '../lib/react.js'
-import { H, P, Ul, Kbd, Callout, CodeBlock, Faq } from '../components/HelpPrimitives.js'
+import { H, P, Ul, Kbd, Callout, CodeBlock, Faq, DevNote } from '../components/HelpPrimitives.js'
 import {
   Rocket, LayoutGrid, ListChecks, ShieldAlert, FileArchive, Bookmark, MessageCircleQuestion, Bot,
-  GitMerge,
+  GitMerge, ScanSearch,
 } from '../components/icons.js'
 import { ALL_EVENT_IDS, EVENT_ID_LABELS, TAG_BY_EVENT_ID, CONDITIONS, COMMON_FIELDS_BY_TAG } from '../utils/eventSchema.js'
 
@@ -20,6 +20,10 @@ function GettingStarted() {
   return html`<div>
     <${P}>The sidebar's drop zone (top-left) accepts Sysmon configuration XML files one at a time or in a batch - drag several files onto it at once, or click it to browse and multi-select. Any filename works - the bundled samples just happen to follow a ${code('Config<Name>.xml')} convention.</${P}>
     <${P}>Each imported file becomes a "network" card in the sidebar with its own color swatch, rule count, and notice count. Networks persist to your browser's local storage automatically, so reloading the page won't lose your work - use the sidebar's <b>Undo</b> / <b>Redo</b> buttons to step back through imports, edits, and deletions in the current session.</${P}>
+
+    <${DevNote}>
+      Dropping/browsing a file calls ${code('FileImport.js')}, which reads it with the browser's ${code('File.text()')} and hands the raw XML string to the Zustand store action ${code('useStore().importFile(fileName, xmlText)')} (${code('src/store/useStore.js')}). That action calls ${code('parseSysmonConfig()')} in ${code('src/utils/xmlParser.js')} - a hand-rolled, comment-preserving parser built on ${code('fast-xml-parser')}'s ${code('preserveOrder')} mode (not a generic XSD-validated parse) - and stores the resulting ${code('{ schemaversion, globals, rules, warnings, ... }')} object as one entry in the ${code('networks')} array. Every mutating store action re-serializes that whole array to ${code('localStorage')} under the key ${code('sysmon-matrix::networks::v1')}; <b>Undo/Redo</b> just pop/push deep clones of that array to/from an in-memory ${code('history.past')} / ${code('history.future')} stack (also in ${code('useStore.js')}) - nothing server-side, nothing async.
+    </${DevNote}>
 
     <${H}>Why messy or malformed XML won't lose rules</${H}>
     <${P}>Real-world Sysmon configs are rarely tidy: inconsistent indentation, optional ${tag('RuleGroup')} wrapping, mixed tag casing, and even genuinely malformed nesting (one bundled sample has a ${tag('ProcessCreate')} block accidentally duplicated inside itself). The parser is deliberately tolerant:</${P}>
@@ -55,6 +59,10 @@ function MatrixViewTopic() {
 
     <${H}>Risk badges on rows</${H}>
     <${P}>A small shield-alert icon next to an Event ID means the Risk Analyzer flagged something for that row - see the dedicated topic for exactly what it's checking. The toolbar's top-right corner also totals every mismatch and broad-rule flag across all loaded networks, so you can tell at a glance whether anything needs attention before you've expanded a single row.</${P}>
+
+    <${DevNote}>
+      ${code('MatrixView.js')} builds its rows/cells straight from the already-parsed ${code('networks')} array in memory - no XML is touched here at all. The grid itself comes from ${code('buildMatrix()')} in ${code('src/utils/diffEngine.js')} (one row per known Event ID, one cell per network, counting ${code('include')}/${code('exclude')} rules whose ${code('eventIds')} includes that row); the risk badges come from ${code('buildRiskIndex()')} in ${code('src/utils/riskAnalyzer.js')}. Both are wrapped in ${code('useMemo')} keyed on the ${code('networks')} array, so they only recompute when a rule is actually added/edited/removed/suppressed - not on every filter keystroke. Edits made in the expanded row's inline form (${code('RuleEditForm')}) call ${code('useStore().updateRule(networkId, ruleId, updates)')}, which also re-derives that rule's MITRE suggestions via ${code('suggestMitreTechniques()')} (${code('src/utils/mitreMap.js')}).
+    </${DevNote}>
   </div>`
 }
 
@@ -68,6 +76,10 @@ function RuleManagementTopic() {
     </${Ul}>
     <${CodeBlock} code=${'<ProcessCreate onmatch="exclude">\n  <CommandLine condition="contains">mimikatz</CommandLine>\n</ProcessCreate>'} />
     <${P}>Either way, click <b>Preview conflicts & build rule</b> before applying - see Conflict & Duplicate Detection below. Once you're happy with the preview, <b>Apply to N networks</b> commits it to every selected target.</${P}>
+
+    <${DevNote}>
+      <b>Preview conflicts & build rule</b> calls ${code('createRuleFromForm()')} (Form Builder mode) or ${code('parseRawSnippet()')} (Raw XML mode) in ${code('src/utils/ruleOps.js')}. ${code('parseRawSnippet()')} is a thin wrapper: it drops your pasted snippet into a throwaway ${code('<Sysmon><EventFiltering>...</EventFiltering></Sysmon>')} shell and runs it through the exact same ${code('parseSysmonConfig()')} used for whole-file imports - so a pasted rule gets identical tolerant-parsing/casing/warning behavior as an imported config. The preview's conflict list comes from ${code('detectConflicts()')} in the same file, which compares the candidate rule's filter signature (${code('filterSetSignature()')} - a sorted ${code('field::condition::value')} join) against each target network's existing, non-suppressed rules of the same Event tag + ${code('onmatch')}. <b>Apply to N networks</b> calls ${code('useStore().applyRuleToNetworks(rule, targetIds)')}, which clones the rule with a fresh id per target and appends it to each target network's ${code('rules')} array.
+    </${DevNote}>
 
     <${H}>Global Rule Remover / Suppressor</${H}>
     <${P}>Opened from the sidebar's <b>Remove / Suppress Rule</b> button. Pick target networks the same way as the injector, then search either by:</${P}>
@@ -83,6 +95,10 @@ function RuleManagementTopic() {
     <${Callout} tone="tip" title="Re-enabling a suppressed rule">
       Open Matrix View, expand the row for that rule's Event ID, find it under the right network column (it's greyed out with a "suppressed" pill), and click the eye icon to re-enable it. There's no separate "restore" screen - the eye icon toggles both ways.
     </${Callout}>
+
+    <${DevNote}>
+      <b>Search</b> calls ${code('findMatchingRules()')} (keyword/field/tag/onmatch, a plain array filter over every target network's ${code('rules')}) or ${code('findRulesBySnippet()')} (parses your pasted snippet with the same ${code('parseRawSnippet()')} as the Injector, then matches by exact filter signature) - both in ${code('src/utils/ruleFinder.js')}. <b>Delete selected</b> calls ${code('useStore().deleteRulesAcrossNetworks(refs)')}, which filters those rule ids out of each affected network's ${code('rules')} array. <b>Comment out (suppress) selected</b> calls ${code('useStore().setRulesDisabled(refs, true)')}, which just flips each rule's ${code('disabled')} flag in place - the rule object itself (filters, comment, MITRE tags) is untouched, which is why re-enabling it later restores it exactly. The eye icon in Matrix View calls the single-rule equivalent, ${code('toggleRuleDisabled(networkId, ruleId)')}.
+    </${DevNote}>
 
     <${H}>Conflict & Duplicate Detection</${H}>
     <${P}>Every time you preview a rule in the Injector, it's checked against each target network's <i>existing, non-suppressed</i> rules of the same Event tag and ${code('onmatch')}:</${P}>
@@ -101,6 +117,10 @@ function MergeBuilderTopic() {
       Every merge mode, conflict detector, and the redundancy check on this tab is plain set-operation/structural-regrouping
       code (${code('src/utils/mergeEngine.js')}) - the same kind of logic as the Diff Viewer or Risk Analyzer, not an LLM.
     </${Callout}>
+
+    <${DevNote}>
+      Every merge mode first flattens each source network into one condition-line-at-a-time entries via ${code('collectFilterEntries()')}, dedupes/compares using ${code('filterSignature()')} (${code('field::condition::value')}), then reassembles rule objects with ${code('groupEntriesIntoRules()')} - the shared pipeline every mode below ends with. <b>Run Merge</b> calls, by mode: ${code('unionMerge()')} (keep every distinct line, attribute sources), ${code('intersectionMerge()')} (keep only lines present in every source), ${code('differentialMerge(A, B)')} (lines in A absent from B), or ${code('hierarchicalMerge(base, overlays)')} (carry the base network through untouched, only add missing lines from overlays) - all in ${code('src/utils/mergeEngine.js')}. Conflict detection (${code('detectOnmatchConflicts()')}, ${code('detectGroupRelationConflicts()')}, ${code('detectHashAlgorithmConflict()')}, ${code('detectSchemaVersionConflict()')}) and the redundancy heuristic (${code('findRedundantConditions()')}, a same-field string-prefix check) run automatically right after; each resolution button calls ${code('resolveOnmatchConflict()')} or ${code('resolveGroupRelationConflict()')}, which are pure functions re-applied from scratch against the original merge output on every click (never mutated in place), which is why changing your mind never corrupts an earlier decision. <b>Save as new workspace network</b> serializes with ${code('assembleMergedNetwork()')} then feeds that XML back through ${code('parseSysmonConfig()')} - the identical import path as a dropped file.
+    </${DevNote}>
 
     <${H}>1. Select input sources and a base</${H}>
     <${P}>Check 2 or more networks in the left panel (or drop/browse fresh ${code('.xml')} files right there - they're imported and immediately selectable). Click the crown icon on any checked network to mark it the <b>Base / Primary</b>: it's required for Hierarchical mode, used as Source A for Differential mode, and used as the schema/hash tiebreak default for Union and Intersection when there's no explicit conflict resolution.</${P}>
@@ -139,6 +159,10 @@ function RiskAnalyzerTopic() {
       An operator mismatch usually means one environment is quietly under-protected (or over-logging) relative to the others for what was presumably meant to be the same rule. It's worth reconciling to a single operator unless the difference is deliberate.
     </${Callout}>
 
+    <${DevNote}>
+      All three checks live in ${code('src/utils/riskAnalyzer.js')} and run on plain in-memory rule objects - no XML parsing happens here. ${code('findOperatorMismatches()')} buckets every filter by ${code('eventTag::onmatch::field::value')} (value lowercased/trimmed) and flags any bucket where more than one distinct ${code('condition')} shows up. ${code('findOverlyBroadRules()')} flags ${code('contains')}/${code('contains any')}/${code('contains all')}/${code('begin with')}/${code('end with')} filters whose value is under 6 characters and doesn't look path-like (no ${code('\\')}/${code('/')} and no file-extension-shaped ending) - a plain regex heuristic, not a real-world false-positive simulation. ${code('findOrphanedRules()')} just surfaces rules the parser already flagged ${code('orphaned: true')} on import. ${code('buildRiskIndex()')} runs all three and indexes the results by Event ID/rule id for ${code('MatrixView.js')} to look up without re-scanning per cell.
+    </${DevNote}>
+
     <${H}>Overly broad rule warnings</${H}>
     <${P}>Flags any filter using a broad-match condition (${code('contains')}, ${code('contains any')}, ${code('contains all')}, ${code('begin with')}, ${code('end with')}) against a short value (under 6 characters) that doesn't look like a path or filename (no backslash/forward-slash and no file-extension-shaped ending). Something like excluding ${code('CommandLine contains "cmd"')} will match almost anything that merely mentions "cmd" anywhere, which can both flood logs and quietly suppress genuine detections.</${P}>
     <${P}>For ${code('DriverLoad')} / ${code('ImageLoad')} exclude rules specifically, the warning calls out an extra consequence: an overly broad exclusion there risks silently dropping legitimate drivers or images far beyond what was intended.</${P}>
@@ -152,6 +176,10 @@ function RiskAnalyzerTopic() {
       <li>Global option tag casing (e.g. ${tag('hashalgorithms')} → ${tag('HashAlgorithms')}), and the ${code('HashAlgorithms')} value's own casing (e.g. ${code('md5')} → ${code('MD5')}).</li>
     </${Ul}>
     <${P}>After running it, a change list shows exactly what was rewritten (or confirms there was nothing to change). This is separate from - and a complement to - the automatic, silent lowercasing the parser already does for ${code('onmatch')}/${code('condition')} <i>values</i> on import (that happens regardless, because the app's internal logic depends on it); Sanitize is specifically for the cosmetic/schema-compliance casing of tag and field <i>names</i>, which is left as-authored until you explicitly ask for it.</${P}>
+
+    <${DevNote}>
+      ${code('sanitizeNetwork()')} in ${code('src/utils/sanitizer.js')} rewrites casing only - it looks up each tag/field/condition/onmatch lowercased against a canonical lowercase→correct-case table built from ${code('eventSchema.js')}'s own exports (${code('EVENT_TAGS')}, ${code('GLOBAL_TAGS')}, ${code('COMMON_FIELDS_BY_TAG')}, ${code('CONDITIONS')}) - unrecognized fields are left untouched rather than guessed at, and it returns a plain ${code('{ network, changes }')} pair rather than mutating anything. ${code('wrapLooseRules()')} (same file) just clears each ${code('orphaned')} flag and assigns a descriptive ${code('ruleGroupName')} - the rule's actual event tag/filters were already decided back at import time by the parser's own best-guess logic (see Getting Started). The store actions ${code('sanitizeNetwork(id)')}/${code('sanitizeAllNetworks()')}/${code('wrapLooseRules(id)')}/${code('wrapLooseRulesAllNetworks()')} just call these and commit the result if anything actually changed.
+    </${DevNote}>
   </div>`
 }
 
@@ -167,6 +195,10 @@ function ExportTopic() {
     <${Callout} tone="info">
       These styles are convenience formatting for readability/auditing, not a byte-for-byte reproduction of either community project - the underlying rules are identical either way.
     </${Callout}>
+
+    <${DevNote}>
+      All three styles are produced by one function, ${code('serializeSysmonConfig(network, style)')} in ${code('src/utils/xmlSerializer.js')} - it walks the in-memory ${code('{ schemaversion, globals, rules }')} model and prints clean, consistently-indented XML text; the ${code('style')} argument only changes whether/how rules get wrapped in named ${tag('RuleGroup')} blocks (${code('serializeRuleGroupBody()')}), not the underlying filter data. Disabled rules are emitted as a single commented-out block (so they re-import as inert, not as live rules) rather than a live tag with a note above it. <b>Download this network</b> calls ${code('downloadText()')} (${code('src/utils/download.js')} - a plain ${code('Blob')} + object URL, no network request); <b>Export all as .zip</b> does the same per network through the ${code('jszip')} package. Everything here is synchronous, client-side, and never leaves the browser.
+    </${DevNote}>
 
     <${H}>Comment preservation</${H}>
     <${P}>Banner headers above ${tag('Sysmon')}, comments documenting a global option or a rule, and inline trailing notes on individual filter lines are all preserved through import → edit/inject/suppress → export. Internal ticket links and analyst notes written as XML comments survive the full round trip - they're reattached to whichever rule, filter, or global option they most likely document (own-line comments document what follows; same-line trailing comments document what preceded them on that line).</${P}>
@@ -192,6 +224,9 @@ function CheatSheetTopic() {
   const rows = ALL_EVENT_IDS.map((id) => ({ id, tag: TAG_BY_EVENT_ID[id], label: EVENT_ID_LABELS[id] }))
   return html`<div>
     <${P}>This table is generated directly from the app's own schema reference data, so it can't drift out of sync with what the Matrix View, Rule Injector, and validator actually use.</${P}>
+    <${DevNote}>
+      Literally the same constants, rendered: ${code('ALL_EVENT_IDS')}, ${code('TAG_BY_EVENT_ID')}, ${code('EVENT_ID_LABELS')}, ${code('CONDITIONS')}, and ${code('COMMON_FIELDS_BY_TAG')} are all exported straight from ${code('src/utils/eventSchema.js')} - the single reference file that ${code('xmlParser.js')}, ${code('ruleOps.js')}, ${code('validator.js')}, ${code('sanitizer.js')}, and ${code('sigmaToSysmon.js')} (see the Sigma Auditor topic) all import from. There is no separate "docs" copy of this data to go stale.
+    </${DevNote}>
     <div class="overflow-x-auto rounded-md border border-slate-200 mb-4 dark:border-zinc-800">
       <table class="w-full text-sm">
         <thead>
@@ -251,6 +286,10 @@ function AiAssistantTopic() {
       settings. The AI Config tab has a dedicated troubleshooting box with the exact steps.
     </${Callout}>
 
+    <${DevNote}>
+      All of it routes through ${code('src/utils/aiClient.js')}, which has no hardcoded cloud host anywhere in it by design. <b>Test Connection & Fetch Models</b> calls ${code('detectAndFetchModels()')}, which tries Ollama's native ${code('/api/tags')} first, then falls back to OpenAI-compatible ${code('/v1/models')} / ${code('/models')} / ${code('/api/models')} (auto-detecting the server "style" unless you pin one). Every assistant action calls ${code('chatCompletion()')}, which POSTs to ${code('/api/chat')} (Ollama) or ${code('/chat/completions')} / ${code('/v1/chat/completions')} (OpenAI-style) with your configured model/temperature/token settings - this <i>is</i> the one place in the whole app where an LLM, not deterministic code, produces the output. The Rule Generator's reply is run through ${code('extractXmlSnippet()')} (pulls a markdown-fenced XML code block, or failing that a bare ${tag('Tag')}...${tag('/Tag')} run, out of free text), then handed to the exact same ${code('parseRawSnippet()')} + ${code('detectConflicts()')} pipeline the manual Global Rule Injector uses (see Rule Management) - the model's output is never trusted or injected directly, only ever as a parsed, conflict-checked candidate rule you still explicitly apply.
+    </${DevNote}>
+
     <${H}>What the AI Detection Assistant tab does</${H}>
     <${Ul}>
       <li><b>Gap Analysis</b> - sends a structured summary of the Matrix View (per-Event-ID rule counts, validation notices, risk-analyzer findings - never raw XML) and asks for an executive-style report on coverage gaps and bypass risks across every loaded network.</li>
@@ -265,7 +304,12 @@ function AiAssistantTopic() {
 }
 
 function FaqTopic() {
-  return html`<${Faq} items=${[
+  return html`<div>
+  <${Faq} items=${[
+    {
+      q: 'What does the "Dev Mode" button at the top of this Help window do?',
+      a: 'It reveals purple "Developer Mode" boxes throughout every topic on this page, each naming the exact file(s) and function(s) that actually run for the action just described - e.g. which store action, which utils/*.js function, whether an LLM is involved anywhere. It only affects what this Help window shows (persisted to localStorage so it stays on across reloads); it changes nothing about how the app itself behaves.',
+    },
     {
       q: 'A rule I imported with onmatch="Exclude" (capitalized) now shows as lowercase - did it change?',
       a: "Only its displayed casing. The parser always normalizes onmatch and condition attribute values to lowercase on import, because the app's matching logic depends on it internally. Tag and field name casing, by contrast, is left exactly as the source had it until you explicitly run Sanitize & Standardize Casing.",
@@ -290,7 +334,65 @@ function FaqTopic() {
       q: 'If I edit a rule or suppress it, do my ticket links / analyst comments in the XML survive?',
       a: 'Yes - comments are preserved through the full edit → inject/suppress → export cycle, reattached to whichever rule, filter, or global option they most likely document. See Comment Preservation under the Export topic for exactly how that works.',
     },
-  ]} />`
+    {
+      q: 'The Sigma Auditor says a network is "Covered" - does that guarantee the rule can\'t be bypassed?',
+      a: 'No - coverage there is a heuristic field/condition/value match against your existing rules, not a real Sysmon execution or a semantic guarantee (the same honest caveat as the Risk Analyzer\'s "broad rule" and "operator mismatch" checks). Treat a Gap as a reliable signal something is missing, and treat Covered as "likely already handled, worth a quick manual look" rather than a proof.',
+    },
+  ]} />
+
+    <${DevNote}>
+      Quick map of where things live, for anyone extending this app: all network/rule data and undo history lives in one Zustand store, ${code('useStore')} (${code('src/store/useStore.js')}), persisted to ${code('localStorage')} key ${code('sysmon-matrix::networks::v1')}. Three small sibling stores hold UI-only preferences the same way: ${code('useThemeStore')} (color theme), ${code('useAiStore')} (Local AI connection settings), and ${code('useHelpDevStore')} (this Dev Mode toggle). Every XML in/out goes through exactly two files - ${code('utils/xmlParser.js')} (parse) and ${code('utils/xmlSerializer.js')} (serialize) - so every feature on every tab (Injector, Remover, Merge Builder, Sanitizer, AI Assistant, Sigma Auditor) reads/writes the same normalized ${code('{ eventTag, onmatch, filters, ... }')} rule shape rather than each tab touching raw XML itself.
+    </${DevNote}>
+  </div>`
+}
+
+function SigmaAuditorTopic() {
+  return html`<div>
+    <${P}>The Sigma Auditor tab answers one question: "if I deployed this Sigma detection rule, would it actually fire against each of my loaded Sysmon configs?" - and if not, lets you preview and inject the exact Sysmon XML needed to close that gap, with a side-by-side diff and an explicit approval step before anything is changed.</${P}>
+
+    <${H}>1. Get a Sigma rule into the editor</${H}>
+    <${Ul}>
+      <li><b>Import .yml</b> - pick a ${code('.yml')}/${code('.yaml')} file from disk. A <b>Reset to Original</b> button appears once you've imported, to discard your edits and restore exactly what was imported.</li>
+      <li><b>New Blank Rule</b> - loads a minimal starter template (${code('title')}/${code('logsource')}/${code('detection')}/${code('level')}/${code('tags')}) you can edit from scratch.</li>
+      <li>Or just paste/type YAML directly into the editor - there's no requirement to import a file first.</li>
+      <li><b>Clear</b> empties the editor entirely.</li>
+    </${Ul}>
+    <${P}>The editor is a live, syntax-highlighted YAML workspace - edit the pasted/imported rule freely before running anything against your networks. A status line under the editor validates the YAML on every keystroke (green check or a red parse error), so you know immediately if something's malformed, without having to click anything first.</${P}>
+
+    <${H}>2. Run Sysmon Audit</${H}>
+    <${P}>Clicking this parses whatever's currently in the editor and translates its ${code('detection:')} block into one or more candidate Sysmon filter sets, then checks every loaded network for coverage. The result is frozen until you click the button again - editing the YAML afterward doesn't change the audit table until you re-run it (this is deliberate: it stops the table updating out from under you mid-edit).</${P}>
+    <${Callout} tone="warning" title="This is a translation, not a Sigma execution engine">
+      Only a common, practical subset of Sigma is translated: field modifiers (${code('contains')}, ${code('startswith')}/${code('endswith')}, bare ${code('*')} wildcards, the ${code('all')} modifier, list values), and ${code('detection.condition')} grammars (a bare selection, ${code('and')}/${code('or')} chains, ${code('not')}, ${code('1 of x*')}/${code('all of x*')}). Regex (${code('|re')}) and base64 modifiers have no native Sysmon equivalent and are approximated or skipped - always with a visible warning, never silently. Anything this app can't confidently translate is flagged rather than guessed at.
+    </${Callout}>
+
+    <${DevNote}>
+      "Run Sysmon Audit" calls ${code('parseSigmaRule()')} (${code('src/utils/sigmaParser.js')}), which itself calls ${code('parseYamlLite()')} - a hand-rolled, indentation-based YAML subset parser written for this app (${code('src/utils/yamlLite.js')}; no external YAML library was added). The on-the-fly validation under the editor runs that exact same parser on every keystroke via ${code('useMemo')}, so "valid YAML" there means the same parser that will ultimately drive the audit, not a separate lint pass. The parsed rule then goes to ${code('translateSigmaToSysmon()')} (${code('src/utils/sigmaToSysmon.js')}), which: resolves ${code('logsource.category')} to a Sysmon event tag via a lookup table in ${code('src/utils/sigmaMapping.js')} (falling back to scanning for an explicit ${code('EventID')} field when there's no category); splits ${code('detection.condition')} into OR-branches with ${code('resolveConditionBranches()')}; and converts each selection's fields/modifiers into Sysmon ${code('{ field, condition, value }')} filters with ${code('valueToFilters()')}. Nothing here calls an LLM - it's entirely deterministic lookup tables and string/regex logic, same philosophy as ${code('xmlParser.js')}.
+    </${DevNote}>
+
+    <${H}>3. Read the Audit & Remediation table</${H}>
+    <${Ul}>
+      <li><b>🟢 Covered</b> - an existing, active ${code('include')} rule for the right Event tag already matches (or broadly matches) this Sigma rule's criteria in that network.</li>
+      <li><b>🔴 Gap Detected</b> - no existing rule in that network would catch it.</li>
+      <li><b>Unmappable</b> - the Sigma rule's ${code('logsource')} doesn't correspond to anything Sysmon can log at all (e.g. Windows Security Event log or PowerShell Script Block logging categories) - there's nothing for this app to audit or inject for that network, by design.</li>
+    </${Ul}>
+    <${Callout} tone="info" title="\"Covered\" is a heuristic, not a guarantee">
+      Coverage is decided by field + condition-polarity + substring-overlap matching against your existing rules - the same kind of "good enough" heuristic as the Risk Analyzer's operator-mismatch/broad-rule checks, not a real Sysmon rule evaluation engine. A "(broad)" suffix on the Covered pill means the Sigma rule's criteria couldn't be translated into concrete filters at all, so coverage there only reflects "this Event ID is logged in some form," not the specific behavior.
+    </${Callout}>
+
+    <${H}>4. Preview Patch and approve</${H}>
+    <${P}>For any Gap (or Unmappable row, there's no action - nothing to patch), <b>Preview Patch</b> opens a modal with the exact Sysmon XML that would be added: the existing config on the left, the proposed version with new lines highlighted on the right, long unchanged stretches collapsed to keep it readable. Nothing is written anywhere until you click <b>Confirm & Update Config</b> - <b>Cancel</b> discards the preview with no effect.</${P}>
+    <${P}>To handle every gap at once, use <b>Approve & Inject All Gaps</b> at the top of the panel: it lists every gap network with a checkbox (uncheck any you don't want touched yet) and a per-row <b>Show diff</b> toggle, then <b>Confirm & Update N Configs</b> applies all the checked ones in one action.</${P}>
+    <${P}>Injected rules show up immediately everywhere else in the app - Matrix View, Side-by-Side Diff, Export - exactly like a rule added through the Global Rule Injector, including Undo/Redo support and heuristic MITRE tagging. Coverage status in the audit table updates live as soon as you inject, without needing to click Run Sysmon Audit again.</${P}>
+
+    <${DevNote}>
+      Coverage checking and the injection plan both live in ${code('src/utils/sigmaAudit.js')}. ${code('auditAllNetworks()')}/${code('auditNetwork()')} compare each candidate branch's filters against a network's active ${code('include')} rules of the same Event tag, using field-name + condition-polarity + case-insensitive substring overlap (${code('existingFilterCovers()')}) - deliberately conservative tone in the UI copy because this is a heuristic, not a Sysmon simulation. <b>Preview Patch</b>/batch rows call ${code('buildInjectionPlan()')}, which de-duplicates against existing exact filter signatures (reusing ${code('filterSetSignature()')} from ${code('ruleOps.js')}, the same dedup key the Global Rule Injector's conflict detector uses) and shapes each new rule with ${code('suggestMitreTechniques()')} (${code('mitreMap.js')}) so it renders identically to any other rule everywhere else in the app. The diff itself is computed by ${code('diffLines()')} in ${code('src/utils/lineDiff.js')} - a hand-rolled O(n·m) LCS line-diff (no diff library added) run against ${code('serializeSysmonConfig()')} output for the before/after network; a local helper collapses long unchanged runs to a "N unchanged lines" separator for readability. <b>Confirm & Update Config</b> (single or batch) calls nothing new at all - it's the exact same store action every other feature uses, ${code('useStore().applyRuleToNetworks(rule, [networkId])')}, called once per generated rule. The live-updating coverage table after injection is just ${code('auditAllNetworks()')} re-running inside a ${code('useMemo')} keyed on the (reactive) ${code('networks')} array - no extra wiring needed for that to "just work".
+    </${DevNote}>
+
+    <${H}>Translating Sigma's AND/OR/NOT into Sysmon include/exclude</${H}>
+    <${P}>Sigma's ${code('detection.condition: selection and not filter')} pattern - a positive match with a negative filter block for false-positive reduction - maps naturally onto Sysmon's own ${code('onmatch="include"')} / ${code('onmatch="exclude"')} pair, and the auditor generates both halves together. A condition like ${code('1 of selection*')} (match if <i>any</i> of several named selections matches) becomes multiple independent candidate branches - mirroring how several separate same-Event-tag ${tag('ProcessCreate')} blocks are already OR'd against each other by Sysmon itself.</${P}>
+    <${CodeBlock} lang="yaml" code=${'detection:\n  selection:\n    CommandLine|contains: \'powershell -enc\'\n  filter:\n    User|endswith: \'$\'\n  condition: selection and not filter'} />
+    <${P}>...translates to an ${code('include')} rule for the ${code('selection')} criteria plus a separate ${code('exclude')} rule for the ${code('filter')} criteria, both injected together.</${P}>
+  </div>`
 }
 
 export const HELP_TOPICS = [
@@ -321,6 +423,13 @@ export const HELP_TOPICS = [
     icon: GitMerge,
     keywords: ['merge', 'combine', 'union', 'intersection', 'differential', 'hierarchical', 'base', 'overlay', 'conflict resolution', 'redundancy', 'policy'],
     render: MergeBuilderTopic,
+  },
+  {
+    id: 'sigma-auditor',
+    label: 'Sigma-to-Sysmon Auditor',
+    icon: ScanSearch,
+    keywords: ['sigma', 'yaml', 'detection rule', 'coverage', 'gap', 'audit', 'preview patch', 'inject', 'diff', 'logsource', 'condition'],
+    render: SigmaAuditorTopic,
   },
   {
     id: 'risk-sanitizer',

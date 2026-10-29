@@ -1,7 +1,7 @@
 import { html, useState, useEffect, useRef, useMemo } from '../lib/react.js'
 import { useStore } from '../store/useStore.js'
-import { Card, CardHeader, CardBody, Button, Select, Pill } from './ui.js'
-import { Download, FileArchive, Save, AlertTriangle, Sparkles, Unlink } from './icons.js'
+import { Card, CardHeader, CardBody, Button, Select, Pill, PageIntro } from './ui.js'
+import { Download, FileArchive, Save, AlertTriangle, Sparkles, Unlink, Code2 } from './icons.js'
 import { serializeSysmonConfig } from '../utils/xmlSerializer.js'
 import { validateNetwork } from '../utils/validator.js'
 import { highlightXml } from '../utils/xmlHighlight.js'
@@ -121,7 +121,14 @@ export function RawEditorExport() {
   const issues = active ? validateNetwork(active) : []
   const errorCount = issues.filter((i) => i.severity === 'error').length
 
-  return html`<div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+  return html`<div class="space-y-4">
+    <${PageIntro} icon=${Code2}>
+      Hand-edit a network's full XML directly, with live syntax highlighting and validation. <b>Sanitize &
+      Standardize Casing</b> and <b>Wrap Loose Rules into RuleGroups</b> clean up the model before you export; pick a
+      format (Standard / SwiftOnSecurity / Olaf Hartong) and download a single file or every loaded network as a
+      bundled .zip.
+    </${PageIntro}>
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
     <${Card}>
       <${CardHeader} className="flex items-center justify-between">
         <${Select} value=${activeId || active?.id} onChange=${setActiveId} options=${networks.map((n) => ({ value: n.id, label: n.name }))} />
@@ -186,6 +193,7 @@ export function RawEditorExport() {
           }
         </${CardBody}>
       </${Card}>
+    </div>
     </div>
   </div>`
 }

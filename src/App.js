@@ -9,19 +9,24 @@ import { DiffViewer } from './components/DiffViewer.js'
 import { RuleInjector } from './components/RuleInjector.js'
 import { RawEditorExport } from './components/RawEditorExport.js'
 import { MergeWorkspace } from './components/MergeWorkspace.js'
+import { SigmaAuditor } from './components/SigmaAuditor.js'
 import { AiAssistant } from './components/AiAssistant.js'
 import { AiConfigPage } from './components/AiConfigPage.js'
-import { LayoutGrid, GitCompare, Wand2, Code2, Network, Bot, Settings2, GitMerge } from './components/icons.js'
+import { LayoutGrid, GitCompare, Wand2, Code2, Network, Bot, GitMerge, ScanSearch } from './components/icons.js'
 
+// "Local AI Config" is deliberately not a tab here - it's reached from the Settings dropdown in
+// TopBar.js (see SettingsMenu.js) since it's a connection-settings page, not a core workflow tab.
+// activeTab can still be set to 'ai-config' (that menu does exactly that) and is still rendered
+// below; it just has no button of its own in the tab strip.
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: Network },
   { id: 'matrix', label: 'Matrix View', icon: LayoutGrid },
   { id: 'diff', label: 'Side-by-Side Diff', icon: GitCompare },
   { id: 'inject', label: 'Global Rule Injector', icon: Wand2 },
   { id: 'merge', label: 'Merge & Combine', icon: GitMerge },
+  { id: 'sigma-audit', label: 'Sigma Auditor', icon: ScanSearch },
   { id: 'export', label: 'Raw Editor / Export', icon: Code2 },
   { id: 'ai-assistant', label: 'AI Detection Assistant', icon: Bot },
-  { id: 'ai-config', label: 'Local AI Config', icon: Settings2 },
 ]
 
 export function App() {
@@ -50,6 +55,7 @@ export function App() {
         ${activeTab === 'diff' ? html`<${DiffViewer} />` : null}
         ${activeTab === 'inject' ? html`<${RuleInjector} />` : null}
         ${activeTab === 'merge' ? html`<${MergeWorkspace} />` : null}
+        ${activeTab === 'sigma-audit' ? html`<${SigmaAuditor} />` : null}
         ${activeTab === 'export' ? html`<${RawEditorExport} />` : null}
         ${activeTab === 'ai-assistant' ? html`<${AiAssistant} />` : null}
         ${activeTab === 'ai-config' ? html`<${AiConfigPage} />` : null}

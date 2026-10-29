@@ -88,8 +88,9 @@ sysmon-config-manager/
 │   ├── store/
 │   │   ├── useStore.js          # Zustand store: networks, undo/redo history, UI selection, localStorage persistence
 │   │   ├── useThemeStore.js     # Zustand store: 'dark'|'light'|'system' theme, persistence, applies the class to <html>
-│   │   └── useAiStore.js        # Zustand store: Local AI endpoint/model/params, connection status, localStorage persistence
-│   ├── components/            # Sidebar, FileImport, Dashboard, MatrixView, DiffViewer, RuleInjector, RuleRemoverModal, RawEditorExport, MergeWorkspace, AiAssistant, AiConfigPage, AiStatusBadge, TopBar, ThemeToggle, ModuleModeToggle, HelpCenter, HelpPrimitives, ui.js (primitives), icons.js
+│   │   ├── useAiStore.js        # Zustand store: Local AI endpoint/model/params, connection status, localStorage persistence
+│   │   └── useHelpDevStore.js   # Zustand store: Help Center's "Developer Mode" toggle, localStorage persistence
+│   ├── components/            # Sidebar, FileImport, Dashboard, MatrixView, DiffViewer, RuleInjector, RuleRemoverModal, RawEditorExport, MergeWorkspace, SigmaAuditor, AiAssistant, AiConfigPage, AiStatusBadge, TopBar, SettingsMenu, ThemeToggle, ModuleModeToggle, HelpCenter, HelpPrimitives, ui.js (primitives), icons.js
 │   ├── content/
 │   │   ├── helpTopics.js        # Help Center article content, English (per-topic render functions + search keywords)
 │   │   └── helpTopics.he.js      # Same topics, pre-translated to Hebrew (RTL) - toggled live from the Help Center header
@@ -99,6 +100,7 @@ sysmon-config-manager/
 │       ├── xmlSerializer.js    # Normalized model -> clean exportable XML (3 output styles), preserves comments, renders suppressed rules as inert comments
 │       ├── xmlHighlight.js     # Lightweight XML syntax highlighter for the Raw Editor (theme-aware via dark: classes)
 │       ├── diffEngine.js       # Per-event-tag diff + Matrix View data builder
+│       ├── lineDiff.js         # Hand-rolled line-level LCS diff, used by the Sigma Auditor's patch preview
 │       ├── validator.js        # Schema/condition/field validation, flags issues
 │       ├── sanitizer.js        # "Sanitize & Standardize Casing" - normalizes tag/attribute casing to the official schema
 │       ├── riskAnalyzer.js     # Cross-network operator-mismatch and overly-broad-rule detection for the Matrix View
@@ -106,6 +108,12 @@ sysmon-config-manager/
 │       ├── ruleOps.js          # Global Rule Injector: build rule, parse raw snippet, conflict detection
 │       ├── ruleFinder.js       # Global Rule Remover: keyword/field or raw-XML-snippet rule search across networks
 │       ├── mergeEngine.js      # Merge & Policy Builder: Union/Intersection/Differential/Hierarchical merge algorithms, conflict detection/resolution, redundancy heuristic - 100% deterministic, no AI
+│       ├── yamlLite.js         # Minimal hand-rolled YAML subset parser (no external YAML library) backing the Sigma Auditor
+│       ├── yamlHighlight.js    # Lightweight YAML syntax highlighter for the Sigma Auditor's editor
+│       ├── sigmaParser.js      # Validates/normalizes a parsed Sigma rule into the shape sigmaToSysmon.js expects
+│       ├── sigmaMapping.js     # Sigma logsource/field/modifier -> Sysmon event tag/field/condition lookup tables
+│       ├── sigmaToSysmon.js    # Translates a Sigma detection: block (incl. and/or/not, "1 of x*") into candidate Sysmon filter rules
+│       ├── sigmaAudit.js       # Heuristic coverage check of a translated Sigma rule against loaded networks + injection-plan builder
 │       ├── download.js         # Shared browser-download-a-text-file helper (Raw Editor/Export + Merge & Policy Builder)
 │       ├── aiClient.js         # Local AI transport (Ollama-native + OpenAI-compatible), never calls a cloud API
 │       └── sampleConfigs.js    # Loads the bundled example networks on first run
@@ -140,11 +148,18 @@ messy fixture exercising loose/orphaned rule handling (see the Risk Analyzer sec
 
 - **Help & Documentation** — the `?` button in the top bar opens an in-app Help Center
   (`src/components/HelpCenter.js`): a searchable left-nav of topics (Getting Started, Matrix View,
-  Rule Management, Risk Analyzer & Sanitizer, Export & Air-Gapped Deployment, a Sysmon quick
-  reference generated live from `eventSchema.js` so it can't drift from the real dropdowns, and an
-  FAQ accordion), with copyable syntax-highlighted code snippets and info/warning/best-practice
-  callouts. Content lives in `src/content/helpTopics.js`; shared pieces (callouts, code blocks,
-  accordion) are in `src/components/HelpPrimitives.js`.
+  Rule Management, Merge & Policy Builder, Sigma-to-Sysmon Auditor, Risk Analyzer & Sanitizer,
+  Export & Air-Gapped Deployment, a Sysmon quick reference generated live from `eventSchema.js` so
+  it can't drift from the real dropdowns, Local AI & LLM Assistant, and an FAQ accordion), with
+  copyable syntax-highlighted code snippets and info/warning/best-practice callouts. Content lives
+  in `src/content/helpTopics.js`; shared pieces (callouts, code blocks, accordion, the Developer
+  Mode box) are in `src/components/HelpPrimitives.js`.
+  - **Developer Mode** - a toggle in the Help Center's header (persisted via
+    `src/store/useHelpDevStore.js`) reveals purple "Developer Mode" boxes throughout every topic,
+    each naming the exact file/function that runs for the action just described - e.g. which store
+    action, which `utils/*.js` function, and whether an LLM is involved anywhere (it almost never
+    is - see the AI Assistant topic for the one place it is). Off by default; changes nothing about
+    how the app itself behaves, only what this Help window shows.
   - **EN / עברית toggle** - an `EN`/`עברית` switch in the Help Center's header swaps the entire
     help page to a complete, pre-written Hebrew translation (`src/content/helpTopics.he.js`) -
     translated once, offline, ahead of time, so the toggle is just a static language swap with no
@@ -153,7 +168,15 @@ messy fixture exercising loose/orphaned rule handling (see the Risk Analyzer sec
     (`<ProcessCreate>`, `onmatch`, `contains`, ...) are deliberately left untranslated in both
     languages since they're syntax the user must type verbatim, not prose. The choice persists to
     `localStorage` and the currently open topic stays selected across the switch (both language
-    arrays share the same topic ids).
+    arrays share the same topic ids). Developer Mode content is English-only (not yet translated).
+- **Per-page intro banners** — every tab opens with a short, always-visible description of what
+  that page does (`PageIntro` in `src/components/ui.js`), distinct from the full Help Center
+  documentation - a quick "what am I looking at" before you dive in.
+- **⚙ Settings menu** (top bar, right side) — consolidates the Local AI status/config link,
+  offline-vendor/CDN module source toggle, Light/Dark/System theme toggle, and the Help button into
+  one dropdown (`src/components/SettingsMenu.js`) so the tab strip itself stays uncluttered as
+  features are added; the tab strip scrolls horizontally on its own if it ever has more tabs than
+  fit a given window width, so this menu's trigger button is never pushed off-screen.
 - **Light / Dark / System theme** — a 3-way toggle in the top bar (Sun / Monitor / Moon)
   switches instantly via Tailwind `dark:` variants (`darkMode: 'class'`); the choice persists to
   `localStorage` and "System" tracks `prefers-color-scheme` live, including while the app is open.
@@ -179,6 +202,20 @@ messy fixture exercising loose/orphaned rule handling (see the Risk Analyzer sec
   Inheritance) across any selected networks, with an interactive conflict-resolution panel, a
   redundancy/overlap heuristic, and a live XML preview you can save back into the workspace or
   export.
+- **Sigma-to-Sysmon Auditor** (`Sigma Auditor` tab, `src/components/SigmaAuditor.js`) — paste,
+  import (`.yml`/`.yaml`), or write a Sigma detection rule in a live, syntax-highlighted YAML
+  editor (own hand-rolled parser, `src/utils/yamlLite.js` - no external YAML library) with on-the-fly
+  validation; **Run Sysmon Audit** translates the rule's `logsource`/`detection` block
+  (`src/utils/sigmaToSysmon.js` + `sigmaMapping.js`, including `and`/`or`/`not` and `1 of x*`
+  condition grammars) into candidate Sysmon filters and checks every loaded network for coverage
+  (`src/utils/sigmaAudit.js`) - 🟢 Covered, 🔴 Gap Detected, or Unmappable (non-Sysmon logsource).
+  For any gap, **Preview Patch** shows a side-by-side original-vs-proposed XML diff
+  (`src/utils/lineDiff.js`, a hand-rolled LCS line diff) with the exact rule(s) to be inserted;
+  nothing is written until you click **Confirm & Update Config** - per network, or in batch via
+  **Approve & Inject All Gaps**. Injected rules show up everywhere else in the app (Matrix View,
+  Diff, Export) exactly like a rule added through the Global Rule Injector, including Undo/Redo.
+  Coverage matching is a field/condition/substring heuristic, not a Sysmon execution engine -
+  flagged clearly in the UI, same honesty standard as the Risk Analyzer below.
 - **Global Rule Remover / Suppressor** (sidebar button) — search for rules across chosen networks
   by keyword/field/Event ID, or by pasting a raw XML snippet to match on exact filter content, then
   either delete the matches outright or suppress them (comment them out in the exported XML while
@@ -219,8 +256,9 @@ messy fixture exercising loose/orphaned rule handling (see the Risk Analyzer sec
   Assistant** below): connects to a locally/LAN-hosted Ollama or Open WebUI instance (never a
   cloud API) for Sysmon Config Matrix gap analysis, natural-language rule generation (with the
   same preview/conflict-check/inject flow as the Global Rule Injector), and per-rule explanation +
-  MITRE mapping + false-positive-risk review. A live badge in the top bar shows connection status;
-  every other feature in the app works fully with the AI disconnected or never configured.
+  MITRE mapping + false-positive-risk review. A live status badge and an **Open Local AI Config**
+  link live in the ⚙ Settings menu (top bar); every other feature in the app works fully with the
+  AI disconnected or never configured.
 
 ## Merge & Policy Builder
 
@@ -272,9 +310,10 @@ app uses. **No AI/LLM is involved anywhere in this feature.**
 
 ## Local AI / LLM Assistant (air-gapped friendly)
 
-The **Local AI Config** tab connects this app to a locally or LAN-hosted LLM server — never a
-cloud API (OpenAI/Anthropic/Google are never contacted; see `src/utils/aiClient.js`, which only
-ever fetches the base URL you type in). Two local server shapes are supported, auto-detected by
+**Local AI Config** (opened from the ⚙ Settings menu in the top bar, not a tab of its own)
+connects this app to a locally or LAN-hosted LLM server — never a cloud API
+(OpenAI/Anthropic/Google are never contacted; see `src/utils/aiClient.js`, which only ever
+fetches the base URL you type in). Two local server shapes are supported, auto-detected by
 default:
 
 - **Ollama native** — `http://localhost:11434` (uses `/api/tags` to list models, `/api/chat` to
@@ -296,10 +335,10 @@ default:
      for a trusted local/lab network, or your exact app origin for anything stricter).
    - Open WebUI: enable CORS / allowed origins in its admin settings, or serve this app from the
      same origin as Open WebUI (reverse proxy) to avoid cross-origin requests entirely.
-3. Open the **Local AI Config** tab in this app, set the Base API URL (and bearer token if your
-   server requires one), and click **Test Connection & Fetch Models** — this populates the model
-   dropdown and flips the top-bar badge to "Local AI: Connected · \<model\>". The AI Config tab has
-   a built-in CORS troubleshooting box if this step fails.
+3. Open **Local AI Config** from the ⚙ Settings menu in the top bar, set the Base API URL (and
+   bearer token if your server requires one), and click **Test Connection & Fetch Models** — this
+   populates the model dropdown and flips the status badge to "Local AI: Connected · \<model\>".
+   The page has a built-in CORS troubleshooting box if this step fails.
 4. Tune Temperature / Top P / Max Tokens / System Prompt preset as needed, then use the **AI
    Detection Assistant** tab (Gap Analysis / Rule Generator / Explain & FP Analysis).
 

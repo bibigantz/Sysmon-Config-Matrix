@@ -4,7 +4,7 @@
 // AST-style regrouping) - there is no AI/LLM anywhere in this file or its dependencies.
 import { html, useState, useMemo } from '../lib/react.js'
 import { useStore } from '../store/useStore.js'
-import { Card, CardHeader, CardBody, Button, Select, TextInput, Checkbox, Pill } from './ui.js'
+import { Card, CardHeader, CardBody, Button, Select, TextInput, Checkbox, Pill, PageIntro } from './ui.js'
 import { FileImport } from './FileImport.js'
 import {
   GitMerge, Layers, Scale, GitCompareArrows, Crown, Combine, ArrowRightLeft,
@@ -367,9 +367,12 @@ export function MergeWorkspace() {
   }
 
   return html`<div class="space-y-4">
-    <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-500">
-      <${GitMerge} size=${14} /> 100% deterministic, code-driven merging (set operations + AST-style rule regrouping) - no AI/LLM is used anywhere on this page.
-    </div>
+    <${PageIntro} icon=${GitMerge}>
+      Combine 2 or more networks into one policy using Union/Additive, Intersection, Differential/Override, or
+      Hierarchical Inheritance, with automatic conflict detection (onmatch, groupRelation, hash/schema mismatches)
+      and a redundancy check before you save or export the result. 100% deterministic, code-driven merging - no
+      AI/LLM is used anywhere on this page.
+    </${PageIntro}>
 
     <div class="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
       <div class="space-y-4 min-w-0">

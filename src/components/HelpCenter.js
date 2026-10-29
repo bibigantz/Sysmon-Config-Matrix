@@ -1,7 +1,8 @@
 import { html, useState, useMemo } from '../lib/react.js'
 import { HELP_TOPICS } from '../content/helpTopics.js'
 import { HELP_TOPICS_HE } from '../content/helpTopics.he.js'
-import { Search, X, CircleHelp } from './icons.js'
+import { Search, X, CircleHelp, Cpu } from './icons.js'
+import { useHelpDevStore } from '../store/useHelpDevStore.js'
 
 const LANG_STORAGE_KEY = 'sysmon-help-lang'
 
@@ -39,6 +40,8 @@ export function HelpCenter({ open, onClose }) {
   const [lang, setLang] = useState(loadLang)
   const [activeId, setActiveId] = useState(HELP_TOPICS[0].id)
   const [query, setQuery] = useState('')
+  const devMode = useHelpDevStore((s) => s.devMode)
+  const toggleDevMode = useHelpDevStore((s) => s.toggle)
 
   const topics = lang === 'he' ? HELP_TOPICS_HE : HELP_TOPICS
   const t = STRINGS[lang]
@@ -73,6 +76,18 @@ export function HelpCenter({ open, onClose }) {
           <h2 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">${t.title}</h2>
         </div>
         <div class="flex items-center gap-2">
+          <button
+            onClick=${toggleDevMode}
+            dir="ltr"
+            title="Developer Mode: show exactly which file/function runs in the background for each button and action - for engineers extending or integrating with this app"
+            class=${`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              devMode
+                ? 'border-violet-400 bg-violet-100 text-violet-700 dark:border-violet-600 dark:bg-violet-500/15 dark:text-violet-300'
+                : 'border-slate-300 bg-slate-100 text-slate-600 hover:text-slate-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            <${Cpu} size=${13} /> Dev Mode${devMode ? ': On' : ''}
+          </button>
           <div class="inline-flex items-center rounded-md border border-slate-300 bg-slate-100 p-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-800" dir="ltr">
             <button
               onClick=${() => switchLang('en')}
@@ -129,6 +144,13 @@ export function HelpCenter({ open, onClose }) {
             <${active.icon} size=${18} class="text-sky-600 dark:text-sky-400" />
             <h3 class="text-lg font-semibold text-slate-900 dark:text-zinc-100">${active.label}</h3>
           </div>
+          ${
+            devMode
+              ? html`<div dir="ltr" class="mb-4 flex items-center gap-2 rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-left text-xs text-violet-800 dark:border-violet-700/40 dark:bg-violet-500/10 dark:text-violet-300">
+                  <${Cpu} size=${13} class="shrink-0" /> Developer Mode is on - look for the purple "Developer Mode" boxes below for the exact file/function behind each action (and whether it's deterministic code or an LLM call).
+                </div>`
+              : null
+          }
           <${active.render} />
         </div>
       </div>
